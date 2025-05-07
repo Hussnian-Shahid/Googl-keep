@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useStore } from "./store";
 import { FiEdit2, FiTrash2, FiSearch, FiX } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
+import Editnote from "./Editnote";
 
 const Main = () => {
   const input = useStore((state) => state.input); // Title of the note
@@ -100,6 +101,30 @@ const Main = () => {
     setSearchOpen(!searchOpen);
   };
 
+  // popm up form 
+
+  const [editModalOpen, setEditfoam] = useState(false);
+  const [editingNote,setEditingnote] = useState(null)
+
+  const handleEditNote = (note) => {
+    setEditingnote(note);
+    setEditfoam(true);
+  };
+
+  const updateNote = () => {
+    const updateNotes = notes.map((note) => 
+      note.id === editingNote.id ? editingNote : note
+    )
+
+    setNotes(updateNotes);
+    setEditfoam(false)
+    setEditingnote(null)
+  }
+
+  const cancelEdit =  () => {
+    setEditfoam(false)
+    setEditingnote(null)
+  }
   return (
     <div className="flex flex-col min-h-screen bg-[#202124]">
       {/* Header section */}
@@ -412,11 +437,7 @@ const Main = () => {
                       whileHover={{ scale: 1.1, color: "#60a5fa" }}
                       whileTap={{ scale: 0.9 }}
                       title="Edit"
-                      onClick={() => {
-                        setInput(note.input);
-                        setDesc(note.desc);
-                        deleteNote(note.id);
-                      }}
+                      onClick={() => handleEditNote(note)}
                       className="p-1.5 rounded-full cursor-pointer hover:bg-blue-500/20 transition-colors duration-200"
                     >
                       <FiEdit2 size={18} />
@@ -445,6 +466,13 @@ const Main = () => {
               </motion.div>
             )}
           </AnimatePresence>
+          <Editnote
+            editModalOpen={editModalOpen}
+            editingNote={editingNote}
+            cancelEdit={cancelEdit}
+            updateNote={updateNote}
+            setEditingnote={setEditingnote}
+          />
         </div>
       </main>
     </div>
