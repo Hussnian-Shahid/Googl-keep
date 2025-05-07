@@ -1,14 +1,29 @@
 import React, { useEffect, useState } from "react";
 import { useStore } from "./store";
-import { FiEdit2, FiTrash2, FiSearch, FiX } from "react-icons/fi";
+import { FiEdit2, FiTrash2, FiSearch, FiX, FiTag } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import Editnote from "./Editnote";
+import ViewNote from "./ViewNote";
+import Filter from "./Filter";
+import {
+  MdMenu,
+  MdSearch,
+  MdRefresh,
+  MdViewAgenda,
+  MdSettings,
+  MdApps,
+  MdAccountCircle,
+  MdClose,
+} from "react-icons/md";
 
 const Main = () => {
   const input = useStore((state) => state.input); // Title of the note
   const desc = useStore((state) => state.desc); // Description of the note
+  const category = useStore((state) => state.category); // Category of the note
   const setInput = useStore((state) => state.setInput); // Function to set title
   const setDesc = useStore((state) => state.setDesc); // Function to set desc
+  const setCategory = useStore((state) => state.setCategory); // Function to set category
+  const resetFields = useStore((state) => state.resetFields); // Function to reset fields
 
   // Local state to store all notes
   const [notes, setNotes] = useState([]);
@@ -20,6 +35,10 @@ const Main = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   // State for mobile search
   const [searchOpen, setSearchOpen] = useState(false);
+  // Default categories
+  const [categories, setCategories] = useState(["Personal", "Business"]);
+  // Active category filter
+  const [activeCategory, setActiveCategory] = useState("all");
 
   // Function that runs when the "Save" button is clicked
   const getData = () => {
@@ -31,14 +50,21 @@ const Main = () => {
       id: Date.now(), // Unique ID using timestamp
       input, // Title
       desc, // Description
+      category, // Category
     };
 
     // Add the new note to the array using spread operator
     setNotes((prev) => [...prev, newNote]);
 
     // Clear the input fields after saving
-    setInput("");
-    setDesc("");
+    resetFields();
+  };
+
+  // Add new category
+  const addNewCategory = (newCategory) => {
+    if (!categories.includes(newCategory)) {
+      setCategories([...categories, newCategory]);
+    }
   };
 
   // delete functionality with animation
@@ -46,32 +72,49 @@ const Main = () => {
     setNotes(notes.filter((note) => note.id !== id));
   };
 
-  // Load notes when the component mounts
+  // Load notes and categories when the component mounts
   useEffect(() => {
     const savedNotes = localStorage.getItem("notes");
+    const savedCategories = localStorage.getItem("categories");
+
     if (savedNotes && savedNotes !== "undefined") {
       setNotes(JSON.parse(savedNotes));
     }
+
+    if (savedCategories && savedCategories !== "undefined") {
+      setCategories(JSON.parse(savedCategories));
+    }
   }, []);
 
-  // Save notes whenever they change
+  // Save notes and categories whenever they change
   useEffect(() => {
     if (notes.length > 0) {
       localStorage.setItem("notes", JSON.stringify(notes));
     }
-  }, [notes]);
 
-  // Filter notes based on search input
+    if (categories.length > 0) {
+      localStorage.setItem("categories", JSON.stringify(categories));
+    }
+  }, [notes, categories]);
+
+  // Filter notes based on search input and active category
   useEffect(() => {
+    let filtered = notes;
+
+    // Filter by category first if not on "all"
+    if (activeCategory !== "all") {
+      filtered = filtered.filter((note) => note.category === activeCategory);
+    }
+
+    // Then filter by search term if one exists
     if (search) {
-      const filtered = notes.filter((note) =>
+      filtered = filtered.filter((note) =>
         note.input.toLowerCase().includes(search.toLowerCase())
       );
-      setFilteredNotes(filtered);
-    } else {
-      setFilteredNotes(notes);
     }
-  }, [search, notes]);
+
+    setFilteredNotes(filtered);
+  }, [search, notes, activeCategory]);
 
   // Handle enter key press in search input
   const enterFunction = (e) => {
@@ -101,10 +144,9 @@ const Main = () => {
     setSearchOpen(!searchOpen);
   };
 
-  // popm up form 
-
+  // popm up form
   const [editModalOpen, setEditfoam] = useState(false);
-  const [editingNote,setEditingnote] = useState(null)
+  const [editingNote, setEditingnote] = useState(null);
 
   const handleEditNote = (note) => {
     setEditingnote(note);
@@ -112,19 +154,36 @@ const Main = () => {
   };
 
   const updateNote = () => {
-    const updateNotes = notes.map((note) => 
+    const updateNotes = notes.map((note) =>
       note.id === editingNote.id ? editingNote : note
-    )
+    );
 
     setNotes(updateNotes);
-    setEditfoam(false)
-    setEditingnote(null)
-  }
+    setEditfoam(false);
+    setEditingnote(null);
+  };
 
-  const cancelEdit =  () => {
-    setEditfoam(false)
-    setEditingnote(null)
-  }
+  const cancelEdit = () => {
+    setEditfoam(false);
+    setEditingnote(null);
+  };
+
+  // Add this new state for the view modal
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [viewingNote, setViewingNote] = useState(null);
+
+  // Function to handle opening the view modal
+  const handleViewNote = (note) => {
+    setViewingNote(note);
+    setViewModalOpen(true);
+  };
+
+  // Function to close the view modal
+  const closeView = () => {
+    setViewModalOpen(false);
+    setViewingNote(null);
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-[#202124]">
       {/* Header section */}
@@ -136,18 +195,7 @@ const Main = () => {
             onClick={toggleMenu}
             className="p-2 rounded-full hover:bg-white/10 transition-colors duration-200"
           >
-            <svg
-              className="h-5 w-5 text-white"
-              viewBox="0 0 20 20"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-            >
-              <path
-                fill="currentcolor"
-                fillRule="evenodd"
-                d="M19 4a1 1 0 01-1 1H2a1 1 0 010-2h16a1 1 0 011 1zm0 6a1 1 0 01-1 1H2a1 1 0 110-2h16a1 1 0 011 1zm-1 7a1 1 0 100-2H2a1 1 0 100 2h16z"
-              />
-            </svg>
+            <MdMenu className="w-6 h-6" />
           </motion.button>
 
           {/* logo */}
@@ -168,7 +216,7 @@ const Main = () => {
           </motion.div>
         </div>
 
-        {/* Search bar - shown on desktop or when searchOpen is true on mobile */}
+        {/* Search bar */}
         <AnimatePresence>
           {(searchOpen || window.innerWidth > 768) && (
             <motion.div
@@ -188,7 +236,7 @@ const Main = () => {
               />
               {/* search icon */}
               <div className="absolute top-0 left-0 py-2 px-3 rounded-full">
-                <FiSearch className="w-5 h-5 text-white" />
+                <MdSearch className="w-5 h-5" />
               </div>
               {/* close icon */}
               {search && (
@@ -197,7 +245,7 @@ const Main = () => {
                   className="absolute top-0 py-2 right-2 rounded-full cursor-pointer"
                   onClick={clearSearch}
                 >
-                  <FiX className="w-5 h-5 text-white" />
+                  <MdClose className="w-5 h-5" />
                 </motion.div>
               )}
             </motion.div>
@@ -211,44 +259,44 @@ const Main = () => {
             onClick={toggleSearch}
             className="p-2 rounded-full hover:bg-white/10 transition-colors duration-200 md:hidden"
           >
-            <FiSearch className="w-5 h-5 text-white" />
+            <MdSearch className="w-6 h-6" />
           </motion.button>
 
-          {/* Utility icons - shown on larger screens */}
+          {/* Utility icons */}
           <div className="hidden md:flex items-center gap-4">
             <motion.button
               whileTap={{ scale: 0.95 }}
               className="p-2 rounded-full hover:bg-white/10 transition-colors duration-200"
             >
-              <img src="/refresh-arrow.png" className="w-5 h-5" alt="refresh" />
+              <MdRefresh className="w-6 h-6" />
             </motion.button>
             <motion.button
               whileTap={{ scale: 0.95 }}
               className="p-2 rounded-full hover:bg-white/10 transition-colors duration-200"
             >
-              <img src="/view.png" className="w-5 h-5" alt="view" />
+              <MdViewAgenda className="w-6 h-6" />
             </motion.button>
             <motion.button
               whileTap={{ scale: 0.95 }}
               className="p-2 rounded-full hover:bg-white/10 transition-colors duration-200"
             >
-              <img src="/setting.png" className="w-5 h-5" alt="settings" />
+              <MdSettings className="w-6 h-6" />
             </motion.button>
           </div>
 
-          {/* User profile and apps - condensed on mobile */}
+          {/* User profile and apps */}
           <div className="flex items-center gap-3">
             <motion.button
               whileTap={{ scale: 0.95 }}
               className="p-2 rounded-full hover:bg-white/10 transition-colors duration-200"
             >
-              <img src="/application.png" className="w-5 h-5" alt="apps" />
+              <MdApps className="w-6 h-6" />
             </motion.button>
             <motion.button
               whileTap={{ scale: 0.95 }}
               className="p-2 rounded-full hover:bg-white/10 transition-colors duration-200"
             >
-              <img src="/user.png" className="w-5 h-5" alt="user profile" />
+              <MdAccountCircle className="w-6 h-6" />
             </motion.button>
           </div>
         </div>
@@ -356,6 +404,16 @@ const Main = () => {
 
       {/* Main content */}
       <main className="flex-1 bg-[#202124] w-full flex flex-col items-center px-4 py-6 md:py-8">
+        {/* Category Filter Section */}
+        <div className="w-full max-w-xl mb-4">
+          <Filter
+            categories={categories}
+            activeCategory={activeCategory}
+            setActiveCategory={setActiveCategory}
+            addNewCategory={addNewCategory}
+          />
+        </div>
+
         {/* Note Input Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -386,8 +444,27 @@ const Main = () => {
               className="w-full bg-transparent text-white text-sm md:text-base outline-none resize-none placeholder-white/60 mb-4 md:mb-6"
             />
 
-            {/* Save Button */}
-            <div className="flex justify-end items-center">
+            {/* Category Selection and Save Button Row */}
+            <div className="flex justify-between items-center">
+              {/* Category Dropdown */}
+              <div className="relative">
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="bg-[#525355] cursor-pointer text-white text-sm px-3 py-1.5 rounded-md outline-none appearance-none pr-8"
+                >
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <FiTag className="text-white/70 w-4 h-4" />
+                </div>
+              </div>
+
+              {/* Save Button */}
               <motion.button
                 whileHover={{ backgroundColor: "rgba(255,255,255,0.2)" }}
                 whileTap={{ scale: 0.95 }}
@@ -420,24 +497,35 @@ const Main = () => {
                   }}
                   transition={{ duration: 0.3 }}
                   layout
+                  onClick={() => handleViewNote(note)}
                   className="bg-[#303134] border border-white/10 rounded-lg p-4 text-white transition-all duration-200 relative group"
                 >
+                  {/* Category Badge - Top Left */}
+                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-white/10 rounded-full text-xs font-medium">
+                    {note.category}
+                  </div>
+
                   {/* Title */}
-                  <h3 className="text-lg font-semibold mb-2 break-words">
+                  <h3 className="text-lg font-semibold mb-2 mt-6 break-words">
                     {note.input}
                   </h3>
 
                   {/* Description */}
-                  <p className="text-white/80 break-words mb-8">{note.desc}</p>
+                  <p className="text-white/80 break-words mb-8 line-clamp-2 overflow-hidden">
+                    {note.desc}
+                  </p>
 
-                  {/* Action Icons: Edit and Delete - Now at bottom left and visible on hover */}
-                  <div className="absolute bottom-3 right-3  opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-2">
+                  {/* Action Icons: Edit and Delete */}
+                  <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-2">
                     {/* Edit button */}
                     <motion.button
                       whileHover={{ scale: 1.1, color: "#60a5fa" }}
                       whileTap={{ scale: 0.9 }}
                       title="Edit"
-                      onClick={() => handleEditNote(note)}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Stop the click from triggering the parent note's click
+                        handleEditNote(note);
+                      }}
                       className="p-1.5 rounded-full cursor-pointer hover:bg-blue-500/20 transition-colors duration-200"
                     >
                       <FiEdit2 size={18} />
@@ -448,7 +536,10 @@ const Main = () => {
                       whileHover={{ scale: 1.1, color: "#ef4444" }}
                       whileTap={{ scale: 0.9 }}
                       title="Delete"
-                      onClick={() => deleteNote(note.id)}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Stop the click from triggering the parent note's click
+                        deleteNote(note.id);
+                      }}
                       className="p-1.5 rounded-full cursor-pointer hover:bg-red-500/20 transition-colors duration-200"
                     >
                       <FiTrash2 size={18} />
@@ -472,6 +563,12 @@ const Main = () => {
             cancelEdit={cancelEdit}
             updateNote={updateNote}
             setEditingnote={setEditingnote}
+            categories={categories}
+          />
+          <ViewNote
+            viewModalOpen={viewModalOpen}
+            viewingNote={viewingNote}
+            closeView={closeView}
           />
         </div>
       </main>
